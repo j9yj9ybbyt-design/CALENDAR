@@ -1,20 +1,10 @@
-SMART CALENDAR WEB - GUIDA RAPIDA
+VERSIONE 3 — SINCRONIZZAZIONE ACCOUNT
 
-1. Estrai lo ZIP e apri la cartella SmartCalendar_Web_GitHub.
-2. Su github.com crea una nuova repository denominata smart-calendar-web.
-3. Carica nella radice della repository tutti i file e sottocartelle estratti.
-4. Fai il commit.
-5. Settings > Pages > Deploy from a branch > main > /(root) > Save.
-6. Dopo la pubblicazione apri dal telefono:
-   https://TUO-UTENTE.github.io/smart-calendar-web/
+1) Crea un progetto Supabase (https://supabase.com).
+2) Nel SQL Editor esegui il file supabase_setup.sql.
+3) Inserisci URL del progetto e chiave publishable/anon nel file config.js.
+4) Apri la repository CALENDAR in VS Code e sostituisci i file con quelli di questo pacchetto.
+5) Ctrl+S -> Source Control -> Commit -> Sync Changes.
+6) Accedi al sito da PC e telefono, usando il medesimo account Smart Calendar.
 
-Nessun BAT, NPM, PYTHON o PC acceso sono necessari per usare la versione web.
-
-I calendari creati rimangono nel browser del dispositivo utilizzato.
-Per portarli sull'altro dispositivo: scarica BACKUP JSON e ripristinalo
-tramite Archivio > Importa backup JSON.
-
-NON CARICARE DOCUMENTI ORIGINALI, BACKUP O DATI PRIVATI NELLA REPOSITORY PUBBLICA.
-
-Nota: il sito usa librerie PDF scaricate da CDN; serve una connessione
-Internet per caricarle. Il file PDF non viene inviato a quelle CDN.
+Per istruzioni dettagliate vedi README.md.

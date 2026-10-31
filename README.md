@@ -1,74 +1,42 @@
-# Smart Calendar Web 2.0 — GitHub Pages
+# Smart Calendar Web 3 — PDF + account sincronizzato
 
-**Web app statica pubblicabile su GitHub Pages**, senza Python, Node.js, npm, terminale o computer sempre acceso per l'utilizzo.
+Smart Calendar Web funziona su GitHub Pages e può essere aperto da computer e telefono anche con il PC spento. Il parsing dei PDF è nel browser: i PDF originali **non** sono caricati su Supabase. Le lezioni salvate (titoli, date, docenti, aule, note) sono sincronizzate tramite Supabase se è configurato l'account; diversamente restano sul dispositivo. È sempre disponibile l'esportazione JSON per il backup.
 
-## Funzioni
+## Pubblicazione e configurazione dell'account (una sola volta)
 
-- Importazione di uno o più PDF da PC e smartphone.
-- Lettura PDF **nel browser dell'utente** con PDF.js; riconoscimento basato su testo e coordinate delle colonne.
-- Parsing di calendari didattici esportati da Excel, incluso il caso del corso sicurezza con titolo del modulo che invade il campo dell'argomento.
-- Data, ora, titolo, materia, docente, aula, piano, categoria, note, editabilità completa.
-- Anno cercato nel PDF; se non presente, l'app richiede un anno da indicare manualmente.
-- Deduplicazione, verifica sovrapposizioni e avvisi su dati incompleti.
-- Archivio locale nel **browser** tramite IndexedDB, disponibile anche dopo riapertura del sito sullo stesso browser.
-- Esportazione PDF professionale multipagina con sezioni per categoria; file ICS; backup JSON.
-- Ripristino backup JSON per trasferire un calendario da un dispositivo a un altro.
-- Layout responsive per computer e telefono.
+1. Apri https://supabase.com/ e crea un account e un **nuovo progetto**. Prendi nota della password di accesso al tuo account Supabase ma non inserirla nel codice.
+2. Nel progetto apri **SQL Editor**; incolla il contenuto di `supabase_setup.sql` e premi **Run**. Questo crea la tabella `public.calendar_projects` con regole per far vedere ogni calendario soltanto al proprietario autenticato.
+3. Nel pannello **Project Settings → API Keys** (la collocazione può variare) copia l'**Project URL** e la **publishable key** (oppure la precedente `anon` key). NON copiare la chiave `service_role`, una chiave `secret`, o password personali.
+4. Apri `config.js` con VS Code, compila **solo** `supabaseUrl` e `supabaseAnonKey`. Esempio:
 
-## Istruzioni: pubblicazione su GitHub (anche senza usare la riga di comando)
+   ```js
+   window.SMART_CALENDAR_CONFIG = {
+     supabaseUrl: 'https://nomeprogetto.supabase.co',
+     supabaseAnonKey: 'sb_publishable_...'
+   };
+   ```
 
-1. Accedi a https://github.com e crea un repository, ad esempio **smart-calendar-web**.
-2. Per GitHub Pages gratuito, puoi usare un repository **pubblico**. **Non inserire PDF originali, password, segreti, archivi privati o backup con dati personali nel repository.**
-3. Apri la repository, scegli **Add file → Upload files**. Carica **il contenuto della cartella** contenuta in questo ZIP mantenendo le sottocartelle `js` e `tests`, e includendo il file `.nojekyll`. In alternativa usa GitHub Desktop per caricare i file.
-4. Premi **Commit changes**.
-5. Apri **Settings → Pages → Build and deployment**. Seleziona **Deploy from a branch**, quindi **main** e **/(root)**; salva.
-6. Quando la pubblicazione è completa, il sito comparirà a un indirizzo simile a `https://TUO-UTENTE.github.io/smart-calendar-web/`.
-7. Apri il link dal telefono anche in 4G/5G. Sul telefono puoi usare **Condividi → Aggiungi alla schermata Home**.
+   La chiave publishable/anon è destinata al browser e può essere pubblica; la protezione dei calendari dipende dalle regole SQL RLS e dall'accesso personale.
+5. In **Authentication → Providers → Email** verifica che il login tramite email sia abilitato. Se la conferma dell'email è attiva, l'utente deve confermare l'indirizzo prima di accedere. In **Authentication → URL Configuration** inserisci come `Site URL` il sito GitHub Pages, per esempio `https://j9yj9ybbyt-design.github.io/CALENDAR/`, e aggiungi l'indirizzo completo alle **Redirect URLs**.
+6. Pubblica i file su GitHub, conservando `index.html`, `config.js`, `style.css`, `supabase_setup.sql` e la cartella `js/` alla radice della repository. Da VS Code: salva con Ctrl+S → Source Control → Commit → Sync Changes. GitHub Pages deve essere impostato su `main` e `/(root)`.
+7. Apri il sito sul PC, clicca **☁ Account → Crea account**, conferma l'email se richiesto, accedi. Fai lo stesso sul telefono con **la stessa email e password**. Ora i calendari nuovi appariranno su entrambi i dispositivi quando apri l'archivio / riapri il sito.
 
-L'applicazione utilizza percorsi relativi, quindi funziona anche nel sottopercorso di una repository GitHub Pages, non solo nella radice del dominio.
+## Importare i calendari che esistevano prima dell'account
 
-### IMPORTANTISSIMO: cosa significa “online”
+I calendari della versione 2 restano nel browser dove sono stati creati. Sul PC originale fai **☁ Account → Accedi → Importa calendari locali**: verranno **copiati** online, mantenendo gli originali in locale. Non cancellare la cache prima di avere verificato l'archivio dal telefono. Puoi anche usare i backup JSON dall'editor.
 
-**Online è il software, non i tuoi calendari.** Il codice HTML/CSS/JavaScript è ospitato su GitHub Pages; i PDF vengono letti in memoria sul dispositivo. Il database dei calendari è **IndexedDB locale** ed è diverso per ogni browser/dispositivo.
+## Download PDF
 
-- Se elabori un calendario dal telefono, puoi salvarlo e riaprirlo sul telefono, anche se il PC è spento.
-- Per visualizzare sul telefono un calendario creato sul PC, devi **esportare il backup JSON dal PC e importarlo dal telefono**. Non c'è sincronizzazione automatica in questa versione.
-- Cancellando i dati del browser o utilizzando navigazione privata, potresti perdere i calendari salvati. Fai regolarmente backup JSON.
-- Il sito pubblico non è protetto da autenticazione: **chiunque può aprire l'app, ma non accede ai calendari privati salvati nel browser di un altro utente**.
-- Le librerie PDF.js, jsPDF e jspdf-autotable sono distribuite tramite CDN, quindi occorre che tali siti siano raggiungibili per elaborare ed esportare i PDF; **i PDF dell'utente non vengono trasmessi alle CDN**.
-- PDF scansionati (sole immagini), cifrati o con strutture atipiche potrebbero non essere leggibili correttamente. L'OCR non è presente; l'app avvisa se non estrae appuntamenti. **Verifica il calendario prima di usarlo.**
+In un progetto apri **Scarica PDF**. L'applicazione usa jsPDF, se disponibile, e passa automaticamente al generatore PDF integrato se la libreria non si carica. Il file include tutte le lezioni valide, ordinate per categoria e data. Se una o più lezioni hanno orari o date invalidi, il programma chiede conferma prima di esportare soltanto le lezioni corrette. Su iPhone, il PDF può comparire in File/Download del browser.
 
-### Miglioramento futuro: sincronizzazione sicura fra dispositivi
+## Operatività e limiti
 
-Per sincronizzare automaticamente gli stessi calendari su PC e smartphone serve un servizio esterno con autenticazione (ad esempio un database sicuro con backend API e accesso privato). GitHub Pages **non esegue Python** e non ha un database persistente. Per una versione cloud valutare un frontend GitHub Pages più API protette (Supabase, Cloudflare Workers/D1, o altro), separando dati privati dal repository pubblico.
+- Nessun Python, npm o .bat necessario per il sito. GitHub Pages ospita i file statici; Supabase ospita soltanto i dati sincronizzati e gli account.
+- I calendari sincronizzati sono disponibili con l'account su PC, tablet e telefono. In caso di modifica contemporanea dello stesso calendario da dispositivi diversi, vale **l'ultimo salvataggio**: evitare l'editing simultaneo del medesimo progetto.
+- Se non hai configurato Supabase o non accedi, i nuovi calendari restano locali. La modalità offline non sincronizza le modifiche finché non viene ripristinata la connessione; in modalità account, se un salvataggio fallisce, compare un errore e va riprovato. Esegui backup JSON periodici.
+- Usare sempre HTTPS, password gestite dal provider e regole RLS per evitare che altri utenti possano leggere/modificare il tuo archivio. Non c'è crittografia applicativa aggiuntiva ai contenuti.
+- I PDF scannerizzati senza testo richiedono OCR e non sono riconosciuti da questa versione.
 
-## Struttura del progetto
+## Test
 
-```
-index.html             interfaccia desktop/mobile
-style.css              stile responsive
-icon.svg               icona
-js/parser.js           estrazione delle righe e classificazione
-js/pdf-reader.js       lettura PDF.js nel browser
-js/exporters.js        PDF, ICS, backup JSON
-js/storage.js          database locale IndexedDB
-js/app.js              logica applicativa e UI
-.nojekyll              disabilita Jekyll in GitHub Pages
-tests/parser.test.mjs  test automatici del parser e ICS
-```
-
-## Verifica dei test (facoltativa, solo per sviluppatori)
-
-Richiede Node.js **solo per eseguire i test, non per usare o pubblicare il sito**:
-
-```
-node --test tests/*.test.mjs
-```
-
-La logica di estrazione è stata verificata in sviluppo contro i PDF di esempio del 2–6 novembre e il documento di sicurezza, usando l'estrazione di testo e delle coordinate del PDF. È necessario verificare la lettura completa su GitHub Pages anche nel browser e con altri PDF reali, perché il comportamento dei PDF può variare.
-
-## Nota tecnica sull'affidabilità
-
-Questa versione NON include un backend Python, riconoscimento OCR, login o sincronizzazione cloud. Non è una pubblicazione del vecchio progetto Windows: è una nuova implementazione completamente client-side. Non archivia i file PDF originali, ma i dati delle lezioni estratte e i metadati dei file.
-
-L'uso avviene senza caricare i documenti su server di elaborazione: non inserire documenti riservati nella repository GitHub, nel sito o in un eventuale sistema di issues pubblico.
+Per i test del parser, se hai Node.js installato: `node --test tests/parser.test.mjs`. I test di interfaccia e download vanno eseguiti in un browser (non dal file HTML aperto tramite `file://`).

@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {writeFileSync} from 'node:fs';
+let lastBlob;
+const original=URL.createObjectURL;
+URL.createObjectURL = (b)=> {lastBlob=b;return 'blob:test';};
+URL.revokeObjectURL=()=>{};
+globalThis.document={createElement:()=>({style:{},click(){},remove(){}}),body:{append(){}}};
+const {savePdfSafe}=await import('../js/exporters.js');
+savePdfSafe([{id:'a',date:'2026-11-11',start:'13:30',end:'17:30',category:'Corso sicurezza',title:'Formazione generale dei lavoratori',subject:'Salute e sicurezza',teacher:'Annalisa Da Re',room:'Non indicata'},{id:'b',date:'2026-12-15',start:'13:30',end:'17:30',category:'Corso sicurezza',title:'Formazione specifica dei lavoratori',subject:'Imprese a rischio alto',teacher:'Annalisa Da Re',room:'Non indicata'}],'Esempio sicurezza');
+assert(lastBlob);assert(lastBlob.size>600);const buff=Buffer.from(await lastBlob.arrayBuffer());assert(buff.toString('ascii',0,8).startsWith('%PDF-1.4'));writeFileSync('/mnt/data/_test_v3_export.pdf',buff);console.log('Generated fallback PDF',lastBlob.size,'bytes');
+process.exit(0);
