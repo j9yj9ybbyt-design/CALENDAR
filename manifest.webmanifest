@@ -1,0 +1,1 @@
+{"name":"Smart Calendar Web","short_name":"Smart Calendar","description":"Calendari formativi da PDF, direttamente nel browser.","start_url":"./","scope":"./","display":"standalone","background_color":"#f5f7fb","theme_color":"#10223f","lang":"it","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}

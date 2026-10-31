@@ -1,0 +1,20 @@
+SMART CALENDAR WEB - GUIDA RAPIDA
+
+1. Estrai lo ZIP e apri la cartella SmartCalendar_Web_GitHub.
+2. Su github.com crea una nuova repository denominata smart-calendar-web.
+3. Carica nella radice della repository tutti i file e sottocartelle estratti.
+4. Fai il commit.
+5. Settings > Pages > Deploy from a branch > main > /(root) > Save.
+6. Dopo la pubblicazione apri dal telefono:
+   https://TUO-UTENTE.github.io/smart-calendar-web/
+
+Nessun BAT, NPM, PYTHON o PC acceso sono necessari per usare la versione web.
+
+I calendari creati rimangono nel browser del dispositivo utilizzato.
+Per portarli sull'altro dispositivo: scarica BACKUP JSON e ripristinalo
+tramite Archivio > Importa backup JSON.
+
+NON CARICARE DOCUMENTI ORIGINALI, BACKUP O DATI PRIVATI NELLA REPOSITORY PUBBLICA.
+
+Nota: il sito usa librerie PDF scaricate da CDN; serve una connessione
+Internet per caricarle. Il file PDF non viene inviato a quelle CDN.
