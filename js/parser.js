@@ -24,18 +24,107 @@ for(let i=0;i<events.length;i++)for(let j=i+1;j<events.length;j++){const a=event
 function lineText(items){let s='';let prev=null;for(const w of items){if(prev!==null&&w.x-prev>0.35)s+=' ';s+=w.str;prev=w.x+w.width;}return clean(s);}
 function groupLines(items){const lines=[];for(const t of [...items].filter(t=>clean(t.str)).sort((a,b)=>a.y-b.y||a.x-b.x)){let g=lines.findLast(v=>Math.abs(v.y-t.y)<Math.max(2.1,Math.min(4,t.height*.48||2.5)));if(!g){g={y:t.y,items:[]};lines.push(g);}g.items.push(t);}return lines.sort((a,b)=>a.y-b.y).map(g=>({...g,items:g.items.sort((a,b)=>a.x-b.x),text:lineText(g.items)}));}
 function segment(line,a,b){return lineText(line.items.filter(w=>w.x>=a&&w.x<b));}
-function spreadsheetLayout(lines,pageWidth){let row=lines.find(l=>{let x=normalized(l.text);return x.includes('orario')&&x.includes('data')&&x.includes('titolo')&&x.includes('materia');});if(!row)return null;const head={};for(const t of row.items){let n=normalized(t.str);for(const key of ['orario','data','mod','titolo','materia','a','docenti','docente','i/e','sede','aula'])if(n===key)head[key]=t.x;}if(!('data'in head)||!('titolo'in head)||!('materia'in head))return null;
-const teacher=head.docenti??head.docente??pageWidth*.84;const mode=head['i/e']??pageWidth*.92;const room=head.sede??head.aula??pageWidth*.94;
-return {headerY:row.y,time:[0,head.data-4],date:[head.data-4,head.mod??head.titolo-30],title:[(head.mod??head.titolo-100)+14,head.titolo+.57*(head.materia-head.titolo)],subject:[head.titolo+.57*(head.materia-head.titolo),(head.a??(head.docenti??pageWidth*.82)-15)-5],teacher:[(head.a?head.a+8:teacher-22),mode-9],room:[mode+8,pageWidth+1],module:[(head.mod??head.titolo-100),head.titolo],fallbackTeacher:teacher,teacherEnd:mode};}
+// The "Docenti" column is frequently *not* aligned with its header: PDF text
+// extraction yields glyph anchors, not Excel cell boundaries. Derive flexible
+// bounds from adjacent column headers, then verify names against right-side text.
+function spreadsheetLayout(lines,pageWidth){
+  const row=lines.find(l=>{const x=normalized(l.text);return x.includes('orario')&&x.includes('data')&&x.includes('titolo')&&x.includes('materia');});
+  if(!row)return null;
+  const head={};
+  for(const t of row.items){
+    const n=normalized(t.str);
+    for(const key of ['orario','data','mod','titolo','materia','a','docenti','docente','insegnante','i/e','sede','aula'])if(n===key)head[key]=t.x;
+  }
+  if(!('data'in head)||!('titolo'in head)||!('materia'in head))return null;
+  const teacherX=head.docenti??head.docente??head.insegnante;
+  const anchors=Object.entries(head).filter(([k])=>!['docenti','docente','insegnante'].includes(k)).map(([,x])=>x).sort((a,b)=>a-b);
+  const prev=teacherX===undefined?null:[...anchors].reverse().find(x=>x<teacherX);
+  const next=teacherX===undefined?null:anchors.find(x=>x>teacherX);
+  const mode=head['i/e']??pageWidth*.92;
+  const roomHeader=head.sede??head.aula??pageWidth*.94;
+  const teacherStart=teacherX===undefined?(head.a!==undefined?head.a+5:pageWidth*.80)
+    :(prev===undefined?Math.max(head.materia+10,teacherX-28):prev+Math.min(7,Math.max(3,(teacherX-prev)*.12)));
+  const teacherEnd=teacherX===undefined?mode-5:(next===undefined?pageWidth+1:next-4);
+  // If room is left of teacher (some course exports), do not assume the
+  // teacher belongs to the room merely because of a fixed column index.
+  const priorRoom=[...anchors].filter(x=>x<roomHeader).at(-1);
+  const roomStart=priorRoom===undefined?roomHeader-18:priorRoom+8;
+  return {headerY:row.y,time:[0,head.data-4],date:[head.data-4,head.mod??head.titolo-30],
+    title:[(head.mod??head.titolo-100)+14,head.titolo+.57*(head.materia-head.titolo)],
+    subject:[head.titolo+.57*(head.materia-head.titolo),(head.a??(teacherX??pageWidth*.82)-15)-5],
+    teacher:[teacherStart,teacherEnd],room:[roomStart,pageWidth+1],
+    module:[(head.mod??head.titolo-100),head.titolo],fallbackTeacher:teacherX??pageWidth*.84,
+    teacherEnd,roomHeader,pageWidth};
+}
+// Teachers are names (including multi-word surnames such as "Da Re"), not the
+// numeric training-hour column, I/E status, or an aula such as "A7 1° P".
+function teacherNameFromRight(line,layout){
+  const minimumX=layout.subject[1]+1;
+  const items=line.items.filter(t=>t.x>=minimumX).sort((a,b)=>a.x-b.x);
+  const fragments=[];
+  for(const item of items){
+    let v=clean(item.str).replace(/^\d+(?:[,.:]\d+)?\s+(?=[A-Za-zÀ-ÿ])/,'');
+    if(!v||/^\d+(?:[,.:]\d+)?$/.test(v))continue;
+    if(/^(?:i|e|i\/e|p\.?t\.?|piano\s+terra|\d+[°º]?\s*p(?:iano)?\.?|(?:[A-Z]{1,3}\d{1,3})(?:\s+.*)?)$/i.test(v))continue;
+    if(/^(?:sede|aula|docente|docenti)$/i.test(v))continue;
+    if(/\b(?:formazione|sicurezza|lavoratori|rischio|competenze|meccatronici|meccanica|elettronica)\b/i.test(v))continue;
+    if(!/^[A-ZÀ-Ý][\p{L}'’.-]*(?:\s+[A-ZÀ-Ý][\p{L}'’.-]*)*$/u.test(v))continue;
+    fragments.push(v);
+  }
+  const candidate=clean(fragments.join(' '));
+  const pieces=candidate.split(' ').filter(Boolean);
+  if(pieces.length<2||pieces.length>6||pieces.every(w=>w.length<=2))return '';
+  return reorderTeacher(candidate);
+}
+function chooseTeacher(line,layout,teacherRaw,roomRaw){
+  const candidate=teacherNameFromRight(line,layout);
+  const raw=clean(teacherRaw).replace(/^\d+\s+/,'');
+  // Prefer a complete name recovered from the entire right side of the row.
+  // This also repairs cases where "Da Re" lands under a different PDF column.
+  if(candidate&&(!raw||candidate.split(' ').length>raw.split(' ').length||raw!==candidate))return candidate;
+  return reorderTeacher(raw);
+}
 function safetyTopic(t,s){const combined=clean(`${t} ${s}`).replace(/LAVORO(?=Formazione)/ig,'LAVORO ');let m=combined.match(/formazione\s+(generale|specifica)\s+dei\s+lavoratori/i);if(!m)return null;const extra=clean(combined.slice(m.index+m[0].length)).replace(/^[-– ]+/,'');const header=clean(combined.slice(0,m.index)).replace(/^\d+\s*/,'');if(!/salute\s+e\s+sicurezza/i.test(header)&&!/rischio\s+alto/i.test(extra))return null;return {title:m[0][0].toUpperCase()+m[0].slice(1).toLowerCase(),subject:extra,notes:header.replace(/\bLAVORO\b/i,'lavoro')};}
 function pickRoom(s){if(!s)return 'Non indicata';return s.replace(/^\b\d+\s+(?=[A-Z]\d)/,'').trim()||'Non indicata';}
-function spreadsheetEvents(lines,layout,year,source){const events=[]; for(const line of lines){if(line.y<=layout.headerY+3)continue;const rawTime=segment(line,...layout.time), dateRaw=segment(line,...layout.date);let time=parseTime(rawTime),date=parseDate(dateRaw,year);if(!time||!date){
-  if(events.length&&line.y-events[events.length-1]._y<24){const sub=segment(line,...layout.subject);if(sub&&!/^[-\d]+$/.test(sub))events[events.length-1].subject=clean(events[events.length-1].subject+' '+sub);}continue;}
-const tt=segment(line,...layout.title);const subj=segment(line,...layout.subject);let teacher=segment(line,...layout.teacher).replace(/^\d+\s+/,'');let roomRaw=segment(line,...layout.room);const cat=classify(tt,subj);const special=safetyTopic(tt,subj);
-if(special){teacher=reorderTeacher(teacher.replace(/^\d+\s*/,''));if(/\b\d+\s+Da\s+Re/i.test(teacher))teacher=teacher.replace(/^\d+\s*/, '');}
-const [room,floor]=splitRoom(pickRoom(roomRaw));const title=special?.title||tt||subj;const topic=special?.subject??subj; if(!title)continue;
-teacher=reorderTeacher(teacher);let confidence=(teacher&&room!=='Non indicata')?'alta':'da verificare';if(!teacher&&cat!=='Corso sicurezza')confidence='da verificare';let e=makeEvent({date,start:time[0],end:time[1],title,subject:topic,teacher,room,floor,category:classify(title,topic,tt),notes:special?.notes||'',source,confidence});e._y=line.y;events.push(e);}
-return events.map(e=>{delete e._y;return e;});}
+function spreadsheetEvents(lines,layout,year,source){
+  const events=[];
+  for(const line of lines){
+    if(line.y<=layout.headerY+3)continue;
+    const rawTime=segment(line,...layout.time),dateRaw=segment(line,...layout.date);
+    const time=parseTime(rawTime),date=parseDate(dateRaw,year);
+    if(!time||!date){
+      if(events.length&&line.y-events[events.length-1]._y<24){
+        const sub=segment(line,...layout.subject);
+        if(sub&&!/^[-\d]+$/.test(sub))events[events.length-1].subject=clean(events[events.length-1].subject+' '+sub);
+        // Some PDF exporters put the teacher on a second visual line.
+        const teacher=teacherNameFromRight(line,layout);
+        if(teacher&&!events[events.length-1].teacher)events[events.length-1].teacher=teacher;
+      }
+      continue;
+    }
+    const tt=segment(line,...layout.title);
+    const subj=segment(line,...layout.subject);
+    const special=safetyTopic(tt,subj);
+    const rawTeacher=segment(line,...layout.teacher);
+    const roomRaw=segment(line,...layout.room);
+    const teacher=chooseTeacher(line,layout,rawTeacher,roomRaw);
+    let [room,floor]=splitRoom(pickRoom(roomRaw));
+    // A teacher placed in the last column may be misread as "sede".
+    if(teacher&&room!=='Non indicata'&&!/^([A-Z]{1,3}\d{1,3}|PT|piano\s+terra)/i.test(room)){
+      if(normalized(room).includes(normalized(teacher))||normalized(teacher).includes(normalized(room))){room='Non indicata';floor='';}
+    }
+    const title=special?.title||tt||subj;
+    const topic=special?.subject??subj;
+    if(!title)continue;
+    const category=classify(title,topic,tt);
+    const confidence=teacher&&(room!=='Non indicata'||category==='Corso sicurezza')?'alta':'da verificare';
+    const e=makeEvent({date,start:time[0],end:time[1],title,subject:topic,teacher,room,floor,
+      category,notes:special?.notes||'',source,confidence});
+    e._y=line.y;
+    events.push(e);
+  }
+  return events.map(e=>{delete e._y;return e;});
+}
 function portraitEvents(lines,year,source){
  const events=[];let current=null,section='Lezione ordinaria',month=11,lastY=-1;
  let titleLeft=166,teacherLeft=367,roomLeft=458;

@@ -20,3 +20,35 @@ test('Anno mancante: non inventarlo',()=>{const pg=sample();pg[0].items=pg[0].it
 test('Deduplicazione e classificazione',()=>{const a=makeEvent({date:'2026-11-02',start:'14:00',end:'17:00',title:'Elettronica'});assert.equal(deduplicate([a,{...a,id:'new'}]).length,1);assert.equal(classify('Esame finale'),'Esame');assert.equal(classify('Laboratorio 3'),'Laboratorio');});
 test('Conflitti: sovrapposizione',()=>{const a=makeEvent({date:'2026-11-02',start:'14:00',end:'17:00',title:'Materia 1'}),b=makeEvent({date:'2026-11-02',start:'15:00',end:'16:00',title:'Materia 2'});assert.ok(audit([a,b]).some(x=>x.message.includes('Sovrapposizione')));});
 test('Esportazione ICS: stessi eventi e caratteri speciali',()=>{const events=parsePages(sample(),'sicurezza.pdf').events;let ics=makeIcs(events,'Prova, aula;');assert.equal((ics.match(/BEGIN:VEVENT/g)||[]).length,4);assert.ok(ics.includes('DTSTART:20261215T133000'));assert.ok(ics.includes('Annalis'));assert.ok(ics.includes('X-WR-CALNAME:Prova\\, aula\\;'));});
+
+test('Sicurezza: docente spostato nella colonna finale, aula non inventata',()=>{
+ const pages=sample();
+ for(const item of pages[0].items){if(item.str==='Annalisa Da Re')item.x=915;}
+ const r=parsePages(pages,'sicurezza.pdf');
+ assert.equal(r.events.length,4);
+ assert.ok(r.events.every(e=>e.teacher==='Annalisa Da Re'&&e.room==='Non indicata'));
+});
+
+test('Sicurezza: docente diviso in frammenti fra colonne',()=>{
+ const pages=sample();
+ const items=pages[0].items;
+ const idx=items.findIndex(x=>x.str==='Annalisa Da Re');
+ items.splice(idx,1,{x:712,y:110,str:'4 Da',width:19,height:10},
+   {x:772,y:110,str:'Re',width:11,height:10},
+   {x:875,y:110,str:'Annalisa',width:44,height:10});
+ const r=parsePages(pages,'sicurezza.pdf');
+ assert.equal(r.events.length,4);
+ assert.equal(r.events[0].teacher,'Annalisa Da Re');
+ assert.equal(r.events[0].room,'Non indicata');
+});
+
+test('Sicurezza: docente nella riga immediatamente successiva',()=>{
+ const pages=sample();
+ const items=pages[0].items;
+ const idx=items.findIndex(x=>x.str==='Annalisa Da Re');
+ items.splice(idx,1);
+ items.push({x:730,y:121,str:'Annalisa Da Re',width:62,height:10});
+ const r=parsePages(pages,'sicurezza.pdf');
+ assert.equal(r.events.length,4);
+ assert.equal(r.events[0].teacher,'Annalisa Da Re');
+});
