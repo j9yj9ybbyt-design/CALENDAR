@@ -1,0 +1,25 @@
+SMART CALENDAR - AVVISI NASCONDIBILI
+
+1. Copia il file applica_avvisi.py nella cartella CALENDAR della tua repository in VS Code,
+   accanto a index.html e style.css (NON dentro js).
+2. In VS Code apri Terminale > Nuovo terminale, nella cartella CALENDAR.
+3. Digita: py applica_avvisi.py
+   Se 'py' non esiste, usa: python applica_avvisi.py
+4. Verifica che il messaggio inizi con OK.
+5. Dal terminale: git status
+6. In Source Control fai Commit e Sync Changes per pubblicare su GitHub Pages.
+7. Aggiorna la pagina con Ctrl + F5.
+
+COSA FA:
+- Gli avvisi normali hanno una X per essere nascosti singolarmente.
+- 'Nascondi avvisi' elimina dalla vista tutti gli avvisi non bloccanti.
+- 'Ripristina avvisi' li mostra nuovamente.
+- Le preferenze sono salvate nel progetto: accedendo al tuo account Supabase
+  si sincronizzano anche su telefono e altri dispositivi.
+- Un vero errore su data/orario resta visibile e le verifiche delle esportazioni
+  non vengono disabilitate.
+- Non cancella lezioni e non modifica il database.
+
+NOTE: Esegui il programma nella stessa cartella dove si trovano i file della
+repository. Il file e' pensato per la versione 3.0 presente al momento della
+preparazione; se nel frattempo il codice e' cambiato, si arresta senza fare danni.

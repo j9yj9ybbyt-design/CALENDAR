@@ -23,9 +23,63 @@ finally{btn.disabled=false;btn.textContent=original;}}
 function categories(){return [...new Set([...CATEGORIES,...(working?.events||[]).map(e=>e.category)])];}
 function renderWorking(){if(!working)return;$('workingName').textContent=working.name;$('workingDetails').textContent=`${working.events.length} appuntamenti · ${working.sources?.length||0} PDF importati · Ultimo salvataggio ${new Date(working.updatedAt).toLocaleString('it-IT')}`;const prev=$('filter').value;$('filter').innerHTML='<option value="">Tutte le categorie</option>'+categories().map(c=>`<option value="${html(c)}">${html(c)}</option>`).join('');$('filter').value=categories().includes(prev)?prev:'';$('downloadIcs').textContent=$('filter').value?'⇩ ICS (categoria filtrata)':'⇩ ICS (tutte le categorie)';renderRows();renderWarnings();}
 function currentRows(){let q=$('search').value.trim().toLowerCase(),f=$('filter').value;return [...working.events].filter(e=>(!f||e.category===f)&&(!q||[e.title,e.subject,e.teacher,e.room,e.date,e.category].join(' ').toLowerCase().includes(q))).sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));}
-function renderRows(){if(!working)return;let rows=currentRows();$('shownCount').textContent=`${rows.length} appuntamenti`;$('emptyEvents').classList.toggle('hidden',!!rows.length);$('eventTable').innerHTML=rows.map(e=>`<tr><td class="date">${html(formatDate(e.date))}<small>${html(e.date)}</small></td><td class="time">${html(e.start)}–${html(e.end)}</td><td class="subject"><strong>${html(e.title)}</strong><small>${html(e.subject)}${e.confidence==='da verificare'?' · ⚠ verifica':''}</small></td><td><span class="tag ${e.category==='Corso sicurezza'?'safety':''}">${html(e.category)}</span></td><td class="teacher">${html(e.teacher||'Non indicato')}</td><td class="room">${html(e.room||'Non indicata')}${e.floor?`<small> · ${html(e.floor)}</small>`:''}</td><td><button class="btn edit" data-edit="${html(e.id)}">Modifica</button></td></tr>`).join('');
+function renderRows(){if(!working)return;let rows=currentRows();$('shownCount').textContent=`${rows.length} appuntamenti`;$('emptyEvents').classList.toggle('hidden',!!rows.length);$('eventTable').innerHTML=rows.map(e=>`<tr><td class="date">${html(formatDate(e.date))}<small>${html(e.date)}</small></td><td class="time">${html(e.start)}–${html(e.end)}</td><td class="subject"><strong>${html(e.title)}</strong><small>${html(e.subject)}${e.confidence==='da verificare'&&!isAcknowledgedVerification(e)?' · ⚠ verifica':''}</small></td><td><span class="tag ${e.category==='Corso sicurezza'?'safety':''}">${html(e.category)}</span></td><td class="teacher">${html(e.teacher||'Non indicato')}</td><td class="room">${html(e.room||'Non indicata')}${e.floor?`<small> · ${html(e.floor)}</small>`:''}</td><td><button class="btn edit" data-edit="${html(e.id)}">Modifica</button></td></tr>`).join('');
 $('mobileEvents').innerHTML=rows.map(e=>`<article class="mobile-event"><div class="mobile-event-top"><strong>${html(formatDate(e.date))}</strong><span>${html(e.start)}–${html(e.end)}</span></div><span class="tag ${e.category==='Corso sicurezza'?'safety':''}">${html(e.category)}</span><h3>${html(e.title)}</h3><p>${html(e.subject)}</p><div class="mobile-event-foot"><span>◉ ${html(e.teacher||'Docente non indicato')}<br>⌖ ${html([e.room,e.floor].filter(Boolean).join(' · '))}</span><button class="btn edit" data-edit="${html(e.id)}">Modifica</button></div></article>`).join('');}
-function renderWarnings(){const issues=audit(working.events),own=working.warnings||[];const fatal=issues.filter(x=>x.type==='error'),uncertain=issues.filter(x=>x.type==='warning');let msg=[...own.slice(0,5),...fatal.slice(0,3).map(x=>x.message),...uncertain.slice(0,3).map(x=>x.message)];if(own.length>5)msg.push(`Altri ${own.length-5} avvisi sui documenti.`);if(uncertain.length>3)msg.push(`Altre ${uncertain.length-3} verifiche sulle lezioni.`);$('alerts').innerHTML=msg.map(m=>`<div class="alert ${/non valido|Impossibile|mancante/i.test(m)?'error':''}">⚠ ${html(m)}</div>`).join('');$('downloadPdf').disabled=!working.events.some(isExportable);$('downloadIcs').disabled=!working.events.some(isExportable);}
+// SMART_CALENDAR_DISMISSIBLE_WARNINGS_V1
+const WARNING_PREVIEW_LIMIT = 12;
+function warningEntries(){
+  if(!working)return [];
+  const source=(working.warnings||[]).map((message,i)=>({
+    key:'document:'+i+':'+message, message:String(message), type:'warning'
+  }));
+  const validated=audit(working.events).map(issue=>({
+    key:'event:'+issue.id+':'+issue.type+':'+issue.message,
+    message:String(issue.message), type:issue.type
+  }));
+  return [...source,...validated];
+}
+function isAcknowledgedVerification(e){
+  const key='event:'+e.id+':warning:Verificare estrazione: '+e.title;
+  return (working?.dismissedWarnings||[]).includes(key);
+}
+function renderWarnings(){
+  if(!working)return;
+  const all=warningEntries();
+  const dismissed=new Set(working.dismissedWarnings||[]);
+  const visible=all.filter(item=>item.type==='error'||!dismissed.has(item.key));
+  const hiddenCount=all.filter(item=>item.type!=='error'&&dismissed.has(item.key)).length;
+  const hideable=visible.filter(item=>item.type!=='error').length;
+  const total=all.length;
+  const heading=total ? `<div class="warning-head"><strong>Segnalazioni: ${visible.length} da vedere${hiddenCount?' · '+hiddenCount+' nascoste':''}</strong><div class="warning-actions">${hideable?'<button type="button" data-warning-action="hide-all">Nascondi avvisi</button>':''}${hiddenCount?'<button type="button" data-warning-action="restore">Ripristina avvisi</button>':''}</div></div>` : '';
+  const rows=visible.slice(0,WARNING_PREVIEW_LIMIT).map(item=>
+    `<div class="alert ${item.type==='error'?'error':item.type==='info'?'info':''} warning-entry"><span>${item.type==='error'?'⛔':'⚠'} ${html(item.message)}</span>${item.type==='error'?'':`<button type="button" class="warning-close" aria-label="Nascondi segnalazione" title="Nascondi questo avviso" data-warning-action="hide-one" data-warning-key="${html(item.key)}">×</button>`}</div>`
+  ).join('');
+  const remainder=visible.length>WARNING_PREVIEW_LIMIT?`<p class="warning-more">Altri ${visible.length-WARNING_PREVIEW_LIMIT} avvisi non mostrati. Puoi nasconderli tutti oppure correggere i dati.</p>`:'';
+  $('alerts').innerHTML=heading+rows+remainder;
+  // Gli avvisi facoltativi possono essere nascosti; le validazioni di esportazione restano attive.
+  $('downloadPdf').disabled=!working.events.some(isExportable);
+  $('downloadIcs').disabled=!working.events.some(isExportable);
+}
+async function handleWarningClick(e){
+  const btn=e.target.closest('button[data-warning-action]');
+  if(!btn||!working)return;
+  const action=btn.dataset.warningAction;
+  const entries=warningEntries();
+  let hidden=new Set(working.dismissedWarnings||[]);
+  if(action==='hide-one'){
+    const key=btn.dataset.warningKey;
+    if(entries.some(item=>item.key===key&&item.type!=='error'))hidden.add(key);
+  }else if(action==='hide-all'){
+    for(const item of entries)if(item.type!=='error')hidden.add(item.key);
+  }else if(action==='restore'){
+    hidden.clear();
+  }else return;
+  working.dismissedWarnings=[...hidden];
+  // persist() salva il progetto su Supabase, quando si è collegati all'account,
+  // oppure nell'archivio locale. La preferenza segue quindi lo stesso calendario.
+  await persist();
+  renderRows();
+}
 async function persist(){if(!working)return;working.updatedAt=now();await saveProject(working);renderWorking();}
 function openEdit(eventId=null){if(!working)return;editingId=eventId;const e=eventId?working.events.find(x=>x.id===eventId):makeEvent({date:new Date().toISOString().slice(0,10),start:'09:00',end:'10:00',title:'',category:'Lezione ordinaria'});if(!e)return;$('dialogTitle').textContent=eventId?'Modifica lezione':'Nuova lezione';$('fCategory').innerHTML=categories().map(c=>`<option value="${html(c)}">${html(c)}</option>`).join('');for(const [field,k] of [['Date','date'],['Start','start'],['End','end'],['Title','title'],['Subject','subject'],['Teacher','teacher'],['Room','room'],['Floor','floor'],['Location','location'],['Notes','notes'],['Category','category']])$('f'+field).value=e[k]||'';$('fCategory').value=e.category;$('removeEvent').style.visibility=eventId?'visible':'hidden';$('modal').classList.remove('hidden');$('fTitle').focus();}
 function closeEdit(){$('modal').classList.add('hidden');editingId=null;}
@@ -49,6 +103,7 @@ function bindAccount(){$('accountBtn').onclick=openAuth;$('closeAuth').onclick=c
 function bind(){document.querySelectorAll('[data-view]').forEach(el=>el.addEventListener('click',()=>{if(el.dataset.view==='editor')startNew();else go(el.dataset.view);}));$('topNew').onclick=startNew;$('heroUpload').onclick=startNew;$('chooseFiles').onclick=e=>{e.stopPropagation();$('fileInput').click();};$('dropzone').onclick=e=>{if(!e.target.closest('button'))$('fileInput').click();};$('dropzone').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('fileInput').click();}};$('dropzone').ondragover=e=>{e.preventDefault();$('dropzone').classList.add('drag');};$('dropzone').ondragleave=()=> $('dropzone').classList.remove('drag');$('dropzone').ondrop=e=>{e.preventDefault();$('dropzone').classList.remove('drag');addFiles([...e.dataTransfer.files]);};$('fileInput').onchange=e=>{addFiles([...e.target.files]);e.target.value='';};$('fileList').onclick=e=>{let t=e.target.closest('[data-remove-file]');if(t){selectedFiles.splice(+t.dataset.removeFile,1);renderFiles();}};$('parseFiles').onclick=parseFiles;$('createEmpty').onclick=async()=>{working={id:id(),name:$('projectName').value.trim()||'Nuovo calendario',createdAt:now(),updatedAt:now(),events:[],sources:[],warnings:[]};await saveProject(working);$('importPanel').classList.add('hidden');$('editorPanel').classList.remove('hidden');renderWorking();toast('Calendario vuoto creato. Aggiungi la prima lezione.');};$('search').oninput=renderRows;$('filter').onchange=()=>{renderRows();$('downloadIcs').textContent=$('filter').value?'⇩ ICS (categoria filtrata)':'⇩ ICS (tutte le categorie)';};$('addEvent').onclick=()=>openEdit();$('saveProject').onclick=async()=>{if(working){await persist();toast(cloudUser()?'Calendario sincronizzato con il tuo account.':'Calendario salvato sul dispositivo.');}};
 $('eventForm').onsubmit=submitEdit;$('closeModal').onclick=closeEdit;$('cancelModal').onclick=closeEdit;$('modalBackdrop').onclick=closeEdit;$('removeEvent').onclick=removeEvent;document.addEventListener('keydown',e=>{if(e.key==='Escape')closeEdit();});document.addEventListener('click',e=>{const b=e.target.closest('[data-edit], [data-open], [data-del-project]');if(!b)return;if(b.hasAttribute('data-edit'))openEdit(b.dataset.edit);if(b.hasAttribute('data-open'))openProject(b.dataset.open).catch(err=>toast(err.message,true));if(b.hasAttribute('data-del-project'))removeProject(b.dataset.delProject);});
 $('downloadPdf').onclick=()=>{const rows=exportRows();if(!rows)return;try{savePdfSafe(rows,working.name);toast('PDF preparato per il download.');}catch(e){toast('Errore PDF: '+e.message,true);console.error(e);}};$('downloadIcs').onclick=()=>{const rows=exportRows();if(!rows)return;const cat=$('filter').value;const es=cat?rows.filter(e=>e.category===cat):rows;if(!es.length)return toast('Nessuna lezione nella categoria scelta.',true);try{saveIcs(es,working.name+(cat?' - '+cat:''));toast(`File ICS preparato (${es.length} lezioni).`);}catch(e){toast('Errore ICS: '+e.message,true);}};$('downloadJson').onclick=()=>{if(!working)return;saveJson(working);toast('Backup JSON scaricato.');};$('restoreJson').onclick=()=>$('jsonInput').click();$('jsonInput').onchange=e=>{if(e.target.files[0])restoreJson(e.target.files[0]);e.target.value='';};}
+$('alerts').addEventListener('click',e=>{handleWarningClick(e).catch(err=>toast('Impossibile salvare gli avvisi: '+err.message,true));});
 bind();bindAccount();refreshArchive();
 async function syncActive(){if(!cloudUser()||!working||!$('modal').classList.contains('hidden'))return;try{const updated=await getProject(working.id);if(updated&&updated.updatedAt>working.updatedAt){working=updated;renderWorking();toast('Calendario aggiornato dall’altro dispositivo.');}}catch(e){console.warn('Sync:',e.message);}}
 window.addEventListener('focus',()=>{if(cloudUser()){refreshArchive();syncActive();}});
