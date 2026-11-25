@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="it">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#10223f"><meta name="description" content="Smart Calendar: organizza e scarica calendari formativi direttamente dal browser."><title>Smart Calendar · Web</title><link rel="stylesheet" href="style.css"><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="manifest" href="manifest.webmanifest"></head>
+<link rel="icon" href="icon-192.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="icon-180.svg">
 <body>
 <div class="app-shell">
 <aside class="sidebar"><div class="brand"><span class="brand-icon">▦</span><div><b>smart<span>calendar</span></b><small>WEB EDITION</small></div></div><div class="sidegroup">WORKSPACE</div><nav class="nav"><button data-view="home" class="navitem active"><span>◫</span> Dashboard</button><button data-view="editor" class="navitem"><span>⊕</span> Nuovo calendario</button><button data-view="archive" class="navitem"><span>▣</span> Archivio</button><button data-view="about" class="navitem"><span>⚙</span> Informazioni</button></nav><div class="side-footer"><span class="secure">●</span> Analisi PDF nel browser<br><small id="cloudIndicator">Archivio sul dispositivo</small></div></aside>
@@ -35,4 +36,5 @@
 <script src="config.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script type="module" src="js/app.js"></script>
+<script src="js/pwa.js"></script>
 </body></html>
